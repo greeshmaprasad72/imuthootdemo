@@ -1,3 +1,19 @@
-# Default ignored files
-/shelf/
-/workspace.xml
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+*.apk
+*.aab
+
+# Keystore files (never commit real signing keys)
+*.jks
+*.keystore
+
+# Log files
+*.log
