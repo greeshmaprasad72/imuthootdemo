@@ -9,20 +9,27 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import com.example.jsonplaceholdermvvm.R
 import com.example.jsonplaceholdermvvm.data.api.Resource
+import com.example.jsonplaceholdermvvm.data.local.TokenManager
 import com.example.jsonplaceholdermvvm.databinding.FragmentLoginBinding
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class LoginFragment : Fragment() {
     private var _binding : FragmentLoginBinding?=null
     private val binding get()=_binding!!
     var mobileNumberConfirmed=false
+    @Inject
+    lateinit var tokenManager: TokenManager
     private val viewModel: LoginViewModel by viewModels()
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -37,6 +44,9 @@ class LoginFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupClickableItems()
         clearErrorOnTyping()
+        offerBioMetricLoginIfAvailable()
+        binding.switchBiometric.isChecked = tokenManager.isBiometricEnabled()
+
         binding.btnContinue.setOnClickListener {
             if (!validateInputs()) return@setOnClickListener
             binding.tvLoginError.text=""
@@ -55,6 +65,46 @@ class LoginFragment : Fragment() {
         observeCheckMobileNumber()
         observeLogin()
     }
+    private fun offerBioMetricLoginIfAvailable(){
+        val canUseBioMetrics= BiometricManager.from(requireContext())
+            .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+                BiometricManager.BIOMETRIC_SUCCESS
+        val hasSavedSession = tokenManager.isBiometricEnabled() && tokenManager.isLoggedIn()
+        if (canUseBioMetrics && hasSavedSession) {
+            showBiometricPrompt()
+        }
+    }
+
+    private fun showBiometricPrompt() {
+        val executor = ContextCompat.getMainExecutor(requireContext())
+        val biometricPrompt = BiometricPrompt(
+            this,
+            executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    navigateToHome()
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    // User cancelled or too many failed attempts — fall back to the
+                    // normal mobile-number + password flow already on screen.
+                }
+            }
+        )
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Log in with biometrics")
+            .setSubtitle("Use your fingerprint or face to continue")
+            .setNegativeButtonText("Use password instead")
+            .build()
+
+        biometricPrompt.authenticate(promptInfo)
+    }
+    private fun navigateToHome(){
+        findNavController().navigate(R.id.action_loginFragment_to_homeFragment)
+    }
 
     private fun observeLogin(){
         viewModel.loginResponse.observe(viewLifecycleOwner){
@@ -63,7 +113,9 @@ class LoginFragment : Fragment() {
                 is Resource.Loading-> setLoading(true)
                 is Resource.Success->{
                     setLoading(false)
-                    Toast.makeText(context, "Login Successful", Toast.LENGTH_SHORT).show()
+                    // Respect whatever the switch was set to at the moment login succeeded
+                    tokenManager.setBiometricEnabled(binding.switchBiometric.isChecked)
+                    navigateToHome()
 
                 }
                 is Resource.Failure->{
