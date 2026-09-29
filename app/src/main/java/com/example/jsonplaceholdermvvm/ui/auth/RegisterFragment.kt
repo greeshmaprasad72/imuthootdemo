@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import com.example.jsonplaceholdermvvm.R
 import com.example.jsonplaceholdermvvm.data.api.Resource
 import com.example.jsonplaceholdermvvm.databinding.FragmentRegisterBinding
@@ -60,6 +61,7 @@ class RegisterFragment : Fragment() {
                 }
                 is Resource.Success->{
                     setLoading(false)
+                    findNavController().navigate(R.id.action_registerFragment_to_homeFragment)
 
                 }
 

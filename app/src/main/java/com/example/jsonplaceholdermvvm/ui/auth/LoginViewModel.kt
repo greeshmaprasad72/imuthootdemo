@@ -7,13 +7,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.jsonplaceholdermvvm.data.api.Resource
 import com.example.jsonplaceholdermvvm.data.api.response.CheckMobileNumberResponse
 import com.example.jsonplaceholdermvvm.data.api.response.LoginResponse
+import com.example.jsonplaceholdermvvm.data.local.TokenManager
 import com.example.jsonplaceholdermvvm.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
     private val _checkMobileNumberResponse =
         MutableLiveData<Resource<ArrayList<CheckMobileNumberResponse>>>()
@@ -35,7 +37,20 @@ class LoginViewModel @Inject constructor(
     fun login(mobileNumber: String, password: String){
         viewModelScope.launch {
             _loginResponse.value = Resource.Loading
-            _loginResponse.value = authRepository.login(mobileNumber,password)
+           val result = authRepository.login(mobileNumber,password)
+            if(result is Resource.Success){
+                val loginData=result.value.firstOrNull()
+                if(loginData?.AuthToken!=null){
+                    tokenManager.saveSession(
+                       loginData.MobileNumber?: mobileNumber,
+                        loginData.FullName?:"",
+                        loginData.AuthToken!!
+                    )
+
+                }
+
+            }
+            _loginResponse.value=result
         }
     }
 }
